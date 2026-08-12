@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Callable
 
 from jarvis.llm.base import BaseLLM, ToolCall
 from jarvis.permissions.gate import PermissionGate
@@ -33,11 +34,13 @@ class Agent:
         registry: ToolRegistry,
         gate: PermissionGate,
         max_iterations: int = _DEFAULT_MAX_ITERATIONS,
+        on_tool_call: Callable[[str, dict], None] | None = None,
     ) -> None:
         self._llm = llm
         self._registry = registry
         self._gate = gate
         self._max_iterations = max_iterations
+        self._on_tool_call = on_tool_call
         self._history: list[dict] = []
 
     # ------------------------------------------------------------------
@@ -106,6 +109,9 @@ class Agent:
                 content=f"Unknown tool '{tool_call.name}'. Available tools: {self._registry.names()}",
                 error=True,
             )
+
+        if self._on_tool_call:
+            self._on_tool_call(tool_call.name, tool_call.arguments)
 
         denial = self._gate.check(tool, tool_call.arguments)
         if denial is not None:
